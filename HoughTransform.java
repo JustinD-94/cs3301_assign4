@@ -85,38 +85,46 @@ public class HoughTransform extends Frame implements ActionListener {
         new HoughTransform(args.length == 1 ? args[0] : "rectangle.png");
     }
 
+  
+  private int compute_p(int x, int y, double cosValue, double sinValue, int theta) {
+      int p = (int) ((x - width / 2) * cosValue + (y - height / 2) * sinValue);
+      p += diagonal / 2;
+      if (p < 0 || p >= diagonal) {
+          return -1; // -1 stands for "false" here.
+      }
+      return p;
+  }
+
 	// Action listener
 	public void actionPerformed(ActionEvent e) {
 		// perform one of the Hough transforms if the button is clicked.
 		if ( ((Button)e.getSource()).getLabel().equals("Line Transform") ) {
-			int[][] g = new int[360][diagonal];
-            int maxRadius = (int) Math.ceil(Math.hypot(width, height));
-            BufferedImage outputImg = new BufferedImage(input.getWidth(), input.getHeight(), BufferedImage.TYPE_INT_RGB);
-            int[][] pixelMatrix = new int[3][3];
-            try {
-                for (int i = 1; i < input.getWidth() - 1; i++) {
-                    for (int j = 1; j < input.getHeight() - 1; j++) {
-                        pixelMatrix[0][0] = new Color(input.getRGB(i - 1, j - 1)).getRed();
-                        pixelMatrix[0][1] = new Color(input.getRGB(i - 1, j)).getRed();
-                        pixelMatrix[0][2] = new Color(input.getRGB(i - 1, j + 1)).getRed();
-                        pixelMatrix[1][0] = new Color(input.getRGB(i, j - 1)).getRed();
-                        pixelMatrix[1][2] = new Color(input.getRGB(i, j + 1)).getRed();
-                        pixelMatrix[2][0] = new Color(input.getRGB(i + 1, j - 1)).getRed();
-                        pixelMatrix[2][1] = new Color(input.getRGB(i + 1, j)).getRed();
-                        pixelMatrix[2][2] = new Color(input.getRGB(i + 1, j + 1)).getRed();
+      int MAXIMUM_THETA = 360; // Length of whole circle.
+      double MOVEMENT_THETA = Math.PI / MAXIMUM_THETA; // Value we move each time we generate lines.
+      int[][] g = new int[MAXIMUM_THETA][diagonal];
+      double[] cosList = new double[MAXIMUM_THETA];
+      double[] sinList = new double[MAXIMUM_THETA];
 
-                        int edge = (int) convolution(pixelMatrix);
-                        outputImg.setRGB(i, j, (edge << 16 | edge << 8 | edge));
+
+      for(int i = 0; i < MAXIMUM_THETA; i++) {
+        cosList[i] = Math.cos(i * MOVEMENT_THETA);
+        sinList[i] = Math.sin(i * MOVEMENT_THETA);
+      }
+      
+      for (int x = 1; x < width - 1; x++) {
+          for (int y = 1; y < height - 1; y++) {
+              if ((source.image.getRGB(x, y) & 0x000000ff) == 0) {
+                  for (int theta = 0; theta < MAXIMUM_THETA; theta++) {
+                    int p = compute_p(x, y, cosList[theta], sinList[theta], theta);
+                    // -1 stands for "false" here.
+                    if (p == -1) {
+                        continue;
                     }
-                }
-
-                // New image with sobel filter applied for edge detection will be written to "test1" image file
-                File outputfile = new File("test1.jpg");
-                ImageIO.write(outputImg, "jpg", outputfile);
-            } catch (IOException ex) {
-                System.err.println("Image width:height=" + input.getWidth() + ":" + input.getHeight());
-            }
-
+                    g[theta][p]++;
+                  }
+              }
+          }
+      }
 			DisplayTransform(diagonal, 360, g);
 		}
 		else if ( ((Button)e.getSource()).getLabel().equals("Circle Transform") ) {
